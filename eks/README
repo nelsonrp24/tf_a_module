@@ -1,0 +1,101 @@
+# EKS Terraform module #
+
+#### This module install and configure EKS cluster, the only parameter it needs is the cluster name please feel free to do some change to improve the module ####
+
+
+After you create the cluster you need to add the workers to the cluster
+
+- Create a file aws-auth-cm.yaml whit this information:
+```
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aws-auth
+  namespace: kube-system
+data:
+  mapRoles: |
+    - rolearn: <ARN of instance role (not instance profile)>
+      username: system:node:{{EC2PrivateDNSName}}
+      groups:
+        - system:bootstrappers
+        - system:nodes
+```
+
+- Replace the **<ARN of instance role (not instance profile)>** you can find this information in AWS console
+
+- Run the next command:
+```
+kubectl apply -f aws-auth-cm.yaml
+```
+- Check if your workers are part of the cluster:
+```
+kubectl get nodes --watch
+```
+
+- Amazon EKS clusters are not created with any storage classes. Create a storage class
+
+```
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: gp2
+provisioner: kubernetes.io/aws-ebs
+parameters:
+  type: gp2
+reclaimPolicy: Retain
+mountOptions:
+  - debug
+```
+
+
+- You need to install kubectl
+```
+Linux: https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/kubectl
+
+MacOS: https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/darwin/amd64/kubectl
+
+Windows: https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/windows/amd64/kubectl.exe
+```
+
+You can follow the next instrucctions 
+
+[kubernetes.io](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+
+
+- Download the Amazon EKS-vended heptio-authenticator-aws binary from Amazon 
+```
+Linux: https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/linux/amd64/heptio-authenticator-aws
+
+MacOS: https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/darwin/amd64/heptio-authenticator-aws
+
+Windows: https://amazon-eks.s3-us-west-2.amazonaws.com/1.10.3/2018-06-05/bin/windows/amd64/heptio-authenticator-aws.exe
+```
+
+- Download and install the heptio-authenticator-aws binary. Amazon EKS vends heptio-authenticator-aws
+
+```
+chmod +x ./heptio-authenticator-aws
+cp ./heptio-authenticator-aws $HOME/bin/heptio-authenticator-aws && export PATH=$HOME/bin:$PATH
+```
+For Bash shells on macOS:
+```
+echo 'export PATH=$HOME/bin:$PATH' >> ~/.bash_profile
+```
+For Bash shells on Linux:
+```
+echo 'export PATH=$HOME/bin:$PATH' >> ~/.bashrc
+```
+
+If you have any question about EKS you can go to official documentation
+
+[EKS Offical Documentation](https://docs.aws.amazon.com/eks/latest/userguide/what-is-eks.html)
+
+
+- Create access to helm
+
+```
+kubectl -n kube-system create serviceaccount tiller
+kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller
+helm init --service-account=tiller
+
+```
